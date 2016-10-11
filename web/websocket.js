@@ -6,7 +6,6 @@
 var wsUri = "ws://" + document.location.host + document.location.pathname + "echo";
 var websocket = new WebSocket(wsUri);
 var username;
-var estoydibujando = false;
 websocket.onopen = function (evt) {
     OnOpen(evt)
 };
@@ -23,24 +22,31 @@ websocket.oneClose = function (evt) {
 var output = document.getElementById("output");
 
 function join() {
-    estoydibujando = true;
     username = textField.value;
     websocket.send(username + " enlazado");
 }
 
-function send_message() {
-    websocket.send(username + ": " + textField.value);
-}
-
 function OnOpen(evt) {
-    estoydibujando = false;
     writeToScreen("Conectado a " + wsUri);
 }
 
 function OnMessage(evt) {
-    //console.log("OnMessage");
-    writeToScreen("Recibido: " + evt.data);
-    userField.innerHTML += evt.data.substring(0, evt.data.indexOf("enlazado")) + "\n";
+    if (evt.data.indexOf("enlazado") != -1) {
+        userField.innerHTML += evt.data.substring(0, evt.data.indexOf("enlazado")) + "\n";
+    } else {
+        if (evt.data.indexOf("pulsa") != -1) {
+            ctx.beginPath();
+        } else {
+            if (evt.data.indexOf("levanta") != -1) {
+            } else {
+                var mensaje = JSON.parse(evt.data);
+                ctx.strokeStyle = mensaje.color;
+                ctx.lineWidth = mensaje.grosor;
+                ctx.lineTo(mensaje.posx, mensaje.posy);
+                ctx.stroke();
+            }
+        }
+    }
 }
 
 function OnError(evt) {
@@ -50,35 +56,27 @@ function OnError(evt) {
 function comenzar() {
     lienzo = document.getElementById('tablero');
     ctx = lienzo.getContext('2d');
-    //Dejamos todo preparado para escuchar los eventos
     document.addEventListener('mousedown', pulsaRaton, false);
     document.addEventListener('mousemove', mueveRaton, false);
     document.addEventListener('mouseup', levantaRaton, false);
 }
 
 function pulsaRaton(evt) {
-    estoyDibujando = true;
-    //Indico que vamos a dibujar
-    ctx.beginPath();
-    //Averiguo las coordenadas X e Y por dónde va pasando el ratón
-    //ctx.moveTo(evt.clientX, evt.clientY);
+    websocket.send("pulsa");
 }
 
 function mueveRaton(evt) {
-    if (estoyDibujando) {
-        //indicamos el color de la línea
-        ctx.strokeStyle = color.value;
-        ctx.lineWidth = grosor.value;
-        //Por dónde vamos dibujando
-        ctx.lineTo(evt.clientX-170, evt.clientY-120);
-        ctx.stroke();
+    var mensaje = {
+        posx: evt.clientX - 170,
+        posy: evt.clientY - 120,
+        color: color.value,
+        grosor: grosor.value,
     }
+    websocket.send(JSON.stringify(mensaje));
 }
 
 function levantaRaton(evt) {
-    //Indico que termino el dibujo
-    ctx.closePath();
-    estoyDibujando = false;
+    websocket.send("levanta");
 }
 
 function writeToScreen(message) {
