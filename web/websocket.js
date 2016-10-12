@@ -3,9 +3,14 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
+/* global grosor, color */
+
 var wsUri = "ws://" + document.location.host + document.location.pathname + "echo";
 var websocket = new WebSocket(wsUri);
 var username;
+var lienzo;
+var dibuja = false;
+
 websocket.onopen = function (evt) {
     OnOpen(evt)
 };
@@ -34,16 +39,22 @@ function OnMessage(evt) {
     if (evt.data.indexOf("enlazado") != -1) {
         userField.innerHTML += evt.data.substring(0, evt.data.indexOf("enlazado")) + "\n";
     } else {
-        if (evt.data.indexOf("pulsa") != -1) {
+        if (evt.data === "pulsa") {
             ctx.beginPath();
+            dibuja = true;
         } else {
-            if (evt.data.indexOf("levanta") != -1) {
+            if (evt.data === "levanta") {
+                dibuja = false;
             } else {
-                var mensaje = JSON.parse(evt.data);
-                ctx.strokeStyle = mensaje.color;
-                ctx.lineWidth = mensaje.grosor;
-                ctx.lineTo(mensaje.posx, mensaje.posy);
-                ctx.stroke();
+                if (evt.data === "limpia") {
+                    lienzo.width = lienzo.width;
+                } else {
+                    var mensaje = JSON.parse(evt.data);
+                    ctx.strokeStyle = mensaje.color;
+                    ctx.lineWidth = mensaje.grosor;
+                    ctx.lineTo(mensaje.posx, mensaje.posy);
+                    ctx.stroke();
+                }
             }
         }
     }
@@ -66,13 +77,16 @@ function pulsaRaton(evt) {
 }
 
 function mueveRaton(evt) {
-    var mensaje = {
-        posx: evt.clientX - 170,
-        posy: evt.clientY - 120,
-        color: color.value,
-        grosor: grosor.value,
+    if (dibuja) {
+        var posicion = lienzo.getBoundingClientRect();
+        var mensaje = {
+            posx: evt.clientX - posicion.left,
+            posy: evt.clientY - posicion.top,
+            color: color.value,
+            grosor: grosor.value
+        };
+        websocket.send(JSON.stringify(mensaje));
     }
-    websocket.send(JSON.stringify(mensaje));
 }
 
 function levantaRaton(evt) {
@@ -81,4 +95,14 @@ function levantaRaton(evt) {
 
 function writeToScreen(message) {
     output.innerHTML += message + "<br>";
+}
+
+function limpiar() {
+    websocket.send("limpia");
+}
+
+function guardaPNG() {
+    var dataImg = lienzo.toDataURL();
+    dataImg = dataImg.replace("image/png", 'image/octet-stream');
+    document.location.href = dataImg;
 }
